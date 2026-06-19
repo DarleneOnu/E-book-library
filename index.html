@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ebook Library</title>
+  <style>
+    :root {
+      --bg: #070707;
+      --panel: #0f0f0f;
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.7);
+      --muted2: rgba(255, 255, 255, 0.55);
+      --border: rgba(255, 255, 255, 0.12);
+      --accent: #ff7a18; /* orange */
+      --accent2: #ff9a4d;
+      --danger: #ff4d4d;
+      --ok: #39d98a;
+      --shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 24px;
+      max-width: 900px;
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(255, 122, 24, 0.18), transparent 55%), var(--bg);
+      color: var(--text);
+    }
+
+    h1 { margin-bottom: 8px; letter-spacing: 0.2px; }
+    h2 { margin-top: 0; font-size: 16px; color: rgba(255,255,255,0.95); }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input[type="file"] {
+      max-width: 420px;
+      color: var(--muted);
+    }
+
+    button {
+      padding: 9px 14px;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      transition: 160ms ease;
+    }
+
+    button:hover {
+      border-color: rgba(255, 122, 24, 0.65);
+      box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.12);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 10px;
+      text-align: left;
+      vertical-align: middle;
+      font-size: 14px;
+    }
+
+    th {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .muted { color: var(--muted2); font-size: 13px; }
+
+    .actions a {
+      margin-right: 8px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .actions a:hover { color: var(--accent2); text-decoration: underline; }
+
+    .error { color: var(--danger); margin-top: 10px; }
+    .ok { color: var(--ok); margin-top: 10px; }
+
+    .container {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      box-shadow: var(--shadow);
+    }
+
+    .fileCell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 260px;
+    }
+
+    .fileIcon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 122, 24, 0.10);
+      border: 1px solid rgba(255, 122, 24, 0.25);
+      flex: 0 0 auto;
+    }
+
+    .fileIcon svg { width: 20px; height: 20px; }
+    .fileIcon .accent { fill: var(--accent); }
+    .fileIcon .stroke { stroke: var(--accent); }
+    .chip {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ebook Library</h1>
+  <div class="container">
+    <h2>Upload</h2>
+    <div class="row">
+      <input id="ebook" type="file" />
+      <button id="uploadBtn">Upload</button>
+      <span class="muted" id="uploadHint">Uploads to the server and then appears in the list.</span>
+    </div>
+    <div id="status" class="muted" style="margin-top:10px;"></div>
+    <div id="err" class="error"></div>
+    <div id="ok" class="ok"></div>
+  </div>
+
+  <div class="container" style="margin-top: 16px;">
+    <h2>Library</h2>
+    <div class="row" style="justify-content: space-between;">
+      <div class="muted">Click Download to save the file.</div>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Size</th>
+          <th>Uploaded</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="listBody">
+        <tr><td colspan="4" class="muted">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const listBody = document.getElementById('listBody');
+    const status = document.getElementById('status');
+    const err = document.getElementById('err');
+    const ok = document.getElementById('ok');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const ebook = document.getElementById('ebook');
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return '-';
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let i = 0;
+      let v = bytes;
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+      return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+    }
+
+    function formatDate(ms) {
+      if (!ms) return '-';
+      const d = new Date(ms);
+      return d.toLocaleString();
+    }
+
+    async function loadFiles() {
+      listBody.innerHTML = '<tr><td colspan="4" class="muted">Loading...</td></tr>';
+      const resp = await fetch('/files');
+      if (!resp.ok) throw new Error('Failed to load files');
+      const data = await resp.json();
+
+      if (!data.files || data.files.length === 0) {
+        listBody.innerHTML = '<tr><td colspan="4" class="muted">No files uploaded yet.</td></tr>';
+        return;
+      }
+
+      listBody.innerHTML = data.files.map(f => {
+        const safeName = encodeURIComponent(f.name);
+        return `
+          <tr>
+            <td>${f.name}</td>
+            <td>${formatBytes(f.size)}</td>
+            <td>${formatDate(f.mtimeMs)}</td>
+            <td class="actions">
+              <a href="/download/${safeName}">Download</a>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function uploadFile() {
+      err.textContent = '';
+      ok.textContent = '';
+
+      const file = ebook.files && ebook.files[0];
+      if (!file) {
+        err.textContent = 'Choose a file first.';
+        return;
+      }
+
+      status.textContent = 'Uploading...';
+      const form = new FormData();
+      form.append('ebook', file);
+
+      const resp = await fetch('/upload', { method: 'POST', body: form });
+      const data = await resp.json().catch(() => ({}));
+
+      status.textContent = '';
+      if (!resp.ok) {
+        err.textContent = data.error || 'Upload failed.';
+        return;
+      }
+
+      ok.textContent = `Uploaded: ${data.file.name}`;
+      ebook.value = '';
+      await loadFiles();
+    }
+
+    uploadBtn.addEventListener('click', uploadFile);
+    refreshBtn.addEventListener('click', loadFiles);
+    ebook.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') uploadFile();
+    });
+
+    loadFiles().catch(e => {
+      listBody.innerHTML = '<tr><td colspan="4" class="muted">Failed to load files.</td></tr>';
+      console.error(e);
+    });
+  </script>
+</body>
+</html>
+
